@@ -1,0 +1,20 @@
+# Live market-making config
+# Requires exchange API keys in env vars
+
+pair: "ETH/USDC"
+strategy: "adaptive"
+spread: 0.3          # 0.3% base spread
+vol_window: 20       # volatility lookback
+max_position: 0.5    # max 0.5 ETH position
+simulate: false
+
+exchange:
+  name: "uniswap_v3"
+  chain: "arbitrum"
+  rpc: "https://arb1.arbitrum.io/rpc"
+  # pool_address loaded per pair
+
+risk:
+  max_loss_pct: 2.0        # stop if down 2%
+  max_position_usd: 500    # never hold more than $500
+  rebalance_threshold: 0.7 # rebalance at 70% inventory skew
