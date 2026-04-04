@@ -9,6 +9,13 @@ agent:
   geography: "default"
   liquid_volume_threshold: 1000000
 
+inventory_risk:
+  max_inventory: 50
+  skew_factor: 0.5
+  decay_rate: 0.95
+  urgency_threshold: 0.7
+  urgency_multiplier: 1.5
+
 backtest:
   fill_probability: 0.3
   fee_bps: 10
