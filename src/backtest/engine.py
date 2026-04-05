@@ -1,8 +1,12 @@
 """Backtesting engine — replay historical data through agents."""
 
 import logging
+import random
 from dataclasses import dataclass
 from typing import Optional
+
+import numpy as np
+import pandas as pd
 
 from ..agents.base_agent import BaseAgent, Fill, Side
 
@@ -36,9 +40,11 @@ class BacktestEngine:
     def __init__(self, agent: BaseAgent, fill_probability: float = 0.3):
         self.agent = agent
         self.fill_probability = fill_probability
+        self._tick_rows: list[dict] = []
 
     def run(self, data: list[BacktestTick]) -> BacktestResult:
         """Run backtest over historical data."""
+        self._tick_rows = []
         pnl_curve = []
         peak_pnl = 0.0
         max_drawdown = 0.0
@@ -54,7 +60,7 @@ class BacktestEngine:
             orders = self.agent.tick(market_data)
 
             # Simulate fills with probability
-            import random
+            tick_fills = 0
             for order in orders:
                 if random.random() < self.fill_probability:
                     fill = Fill(
@@ -65,6 +71,7 @@ class BacktestEngine:
                     )
                     self.agent.on_fill(fill)
                     total_fills += 1
+                    tick_fills += 1
 
             pnl = self.agent.get_pnl(tick.oracle_price)
             total = pnl["total"]
@@ -73,9 +80,32 @@ class BacktestEngine:
             drawdown = peak_pnl - total
             max_drawdown = max(max_drawdown, drawdown)
 
+            # Compute spread from bid/ask orders placed this tick
+            bids = [o for o in orders if o.side == Side.BID]
+            asks = [o for o in orders if o.side == Side.ASK]
+            if bids and asks:
+                spread = asks[0].price - bids[0].price
+                action = "quote"
+            elif orders:
+                spread = 0.0
+                action = "quote_partial"
+            else:
+                spread = 0.0
+                action = "idle"
+            if tick_fills > 0:
+                action = "fill"
+
+            self._tick_rows.append({
+                "timestamp": tick.timestamp,
+                "action": action,
+                "price": tick.oracle_price,
+                "spread": spread,
+                "inventory": self.agent.position.base_balance,
+                "pnl": total,
+            })
+
         # Compute Sharpe ratio
         if len(pnl_curve) > 1:
-            import numpy as np
             returns = np.diff(pnl_curve)
             sharpe = float(np.mean(returns) / np.std(returns)) if np.std(returns) > 0 else 0.0
         else:
@@ -95,6 +125,23 @@ class BacktestEngine:
             fill_rate=total_fills / len(data) if data else 0,
         )
 
+    def export_results(self, path: str) -> None:
+        """Export per-tick results to CSV or Parquet based on file extension.
+
+        Columns: timestamp, action, price, spread, inventory, pnl
+        """
+        if not self._tick_rows:
+            logger.warning("No backtest data to export — run() first.")
+            return
+
+        df = pd.DataFrame(self._tick_rows, columns=["timestamp", "action", "price", "spread", "inventory", "pnl"])
+        if path.endswith(".parquet"):
+            df.to_parquet(path, index=False)
+        else:
+            df.to_csv(path, index=False)
+
+        logger.info(f"Exported {len(df)} rows to {path}")
+
     @staticmethod
     def generate_mock_data(base_price: float, ticks: int, volatility: float = 0.02) -> list[BacktestTick]:
         """Generate mock price data for testing."""
@@ -104,7 +151,7 @@ class BacktestEngine:
         for i in range(ticks):
             price *= (1 + random.gauss(0, volatility))
             data.append(BacktestTick(
-                timestamp=f"2026-01-01T{i:05d}",
+                timestamp=f"2026-01-01T{i // 3600:02d}:{(i % 3600) // 60:02d}:{i % 60:02d}",
                 oracle_price=price,
                 volume_24h=random.uniform(10000, 1000000),
             ))

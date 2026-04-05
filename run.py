@@ -13,9 +13,6 @@ import yaml
 from pathlib import Path
 
 from src.agents.rwa_market_maker import RWAMarketMaker
-from src.strategies.constant_spread import ConstantSpreadStrategy
-from src.strategies.adaptive_spread import AdaptiveSpreadStrategy
-from src.oracle.price_feed import PriceFeed
 from src.backtest.engine import BacktestEngine
 
 
@@ -24,31 +21,38 @@ def load_config(path: str) -> dict:
         return yaml.safe_load(f)
 
 
-def run_simulate(config: dict):
+def run_simulate(config: dict, output: str = None):
     """Run a backtest simulation."""
     logging.info("=== SIMULATE MODE ===")
-    pair = config.get("pair", "ETH/USDC")
-    strategy_name = config.get("strategy", "constant_spread")
-
-    oracle = PriceFeed(source="mock", pair=pair)
-
-    if strategy_name == "adaptive":
-        strategy = AdaptiveSpreadStrategy(
-            base_spread=config.get("spread", 0.5),
-            volatility_window=config.get("vol_window", 20),
-        )
-    else:
-        strategy = ConstantSpreadStrategy(spread_pct=config.get("spread", 0.5))
 
     agent = RWAMarketMaker(
-        strategy=strategy,
-        oracle=oracle,
-        config=config,
+        agent_id="backtest-rwa",
+        config={
+            "initial_quote": config.get("initial_quote", 10000),
+            "base_spread_bps": int(config.get("spread", 0.5) * 100),
+            "max_order_size_pct": config.get("max_order_size_pct", 0.1),
+            "max_exposure": config.get("max_exposure", 50),
+        },
     )
 
-    engine = BacktestEngine(agent=agent, oracle=oracle)
-    results = engine.run(ticks=config.get("ticks", 100))
-    engine.print_summary(results)
+    engine = BacktestEngine(agent=agent, fill_probability=config.get("fill_probability", 0.3))
+    data = BacktestEngine.generate_mock_data(
+        base_price=config.get("base_price", 100.0),
+        ticks=config.get("ticks", 100),
+    )
+    results = engine.run(data)
+
+    logging.info(f"Ticks:        {results.total_ticks}")
+    logging.info(f"Fills:        {results.total_fills} ({results.fill_rate:.1%} fill rate)")
+    logging.info(f"Realized PnL: {results.realized_pnl:.2f}")
+    logging.info(f"Unrealized:   {results.unrealized_pnl:.2f}")
+    logging.info(f"Total PnL:    {results.total_pnl:.2f}")
+    logging.info(f"Max Drawdown: {results.max_drawdown:.2f}")
+    logging.info(f"Sharpe Ratio: {results.sharpe_ratio:.3f}")
+
+    if output:
+        engine.export_results(output)
+        print(f"Results exported to {output}")
 
 
 def run_live(config: dict):
@@ -65,6 +69,7 @@ def main():
     parser.add_argument("--pair", help="Trading pair (e.g., ETH/USDC)")
     parser.add_argument("--spread", type=float, help="Spread percentage")
     parser.add_argument("--ticks", type=int, default=100, help="Simulation ticks")
+    parser.add_argument("--output", help="Export backtest results to file (.csv or .parquet)")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -84,7 +89,7 @@ def main():
         config["ticks"] = args.ticks
 
     if args.simulate or config.get("simulate", True):
-        run_simulate(config)
+        run_simulate(config, output=args.output)
     else:
         run_live(config)
 
