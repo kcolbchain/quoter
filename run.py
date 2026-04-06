@@ -4,6 +4,7 @@ kcolbchain quoter — autonomous market-making agent runner.
 
 Usage:
     python run.py --simulate                    # backtest mode
+    python run.py --simulate --output results   # export CSV + Parquet
     python run.py --config config/live.yaml     # live mode
     python run.py --pair ETH/USDC --spread 0.5  # quick test
 """
@@ -11,6 +12,7 @@ import argparse
 import logging
 import yaml
 from pathlib import Path
+from typing import Optional
 
 from src.agents.rwa_market_maker import RWAMarketMaker
 from src.strategies.constant_spread import ConstantSpreadStrategy
@@ -24,7 +26,7 @@ def load_config(path: str) -> dict:
         return yaml.safe_load(f)
 
 
-def run_simulate(config: dict):
+def run_simulate(config: dict, output_path: Optional[str] = None):
     """Run a backtest simulation."""
     logging.info("=== SIMULATE MODE ===")
     pair = config.get("pair", "ETH/USDC")
@@ -50,6 +52,11 @@ def run_simulate(config: dict):
     results = engine.run(ticks=config.get("ticks", 100))
     engine.print_summary(results)
 
+    if output_path:
+        exported = engine.export_results(output_path)
+        if exported:
+            logging.info("Exported results to %s and %s", exported.get("csv"), exported.get("parquet"))
+
 
 def run_live(config: dict):
     """Run live market making (requires API keys + wallet)."""
@@ -65,6 +72,7 @@ def main():
     parser.add_argument("--pair", help="Trading pair (e.g., ETH/USDC)")
     parser.add_argument("--spread", type=float, help="Spread percentage")
     parser.add_argument("--ticks", type=int, default=100, help="Simulation ticks")
+    parser.add_argument("--output", help="Output path for CSV/Parquet export")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -78,13 +86,13 @@ def main():
 
     if args.pair:
         config["pair"] = args.pair
-    if args.spread:
+    if args.spread is not None:
         config["spread"] = args.spread
     if args.ticks:
         config["ticks"] = args.ticks
 
     if args.simulate or config.get("simulate", True):
-        run_simulate(config)
+        run_simulate(config, output_path=args.output)
     else:
         run_live(config)
 

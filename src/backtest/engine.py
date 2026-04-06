@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 from ..agents.base_agent import BaseAgent, Fill, Side
@@ -36,13 +37,45 @@ class BacktestEngine:
     def __init__(self, agent: BaseAgent, fill_probability: float = 0.3):
         self.agent = agent
         self.fill_probability = fill_probability
+        self.last_results: list[dict] = []
 
-    def run(self, data: list[BacktestTick]) -> BacktestResult:
+    def export_results(self, output_path: str) -> dict:
+        """Export the last backtest results to CSV and Parquet via pandas."""
+        if not self.last_results:
+            return {}
+
+        import pandas as pd
+
+        base_path = Path(output_path)
+        if base_path.suffix in {".csv", ".parquet"}:
+            base_path = base_path.with_suffix("")
+
+        df = pd.DataFrame(
+            self.last_results,
+            columns=["timestamp", "action", "price", "spread", "inventory", "pnl"],
+        )
+
+        csv_path = base_path.with_suffix(".csv")
+        parquet_path = base_path.with_suffix(".parquet")
+        df.to_csv(csv_path, index=False)
+        df.to_parquet(parquet_path, index=False)
+
+        return {"csv": str(csv_path), "parquet": str(parquet_path)}
+
+    def run(
+        self,
+        data: Optional[list[BacktestTick]] = None,
+        ticks: Optional[int] = None,
+        base_price: float = 100.0,
+    ) -> BacktestResult:
         """Run backtest over historical data."""
+        if data is None:
+            data = self.generate_mock_data(base_price=base_price, ticks=ticks or 0)
         pnl_curve = []
         peak_pnl = 0.0
         max_drawdown = 0.0
         total_fills = 0
+        self.last_results = []
 
         for tick in data:
             market_data = {
@@ -52,6 +85,16 @@ class BacktestEngine:
             }
 
             orders = self.agent.tick(market_data)
+
+            bid_prices = [o.price for o in orders if o.side == Side.BID]
+            ask_prices = [o.price for o in orders if o.side == Side.ASK]
+            spread_bps = None
+            if bid_prices and ask_prices:
+                bid = max(bid_prices)
+                ask = min(ask_prices)
+                mid = (bid + ask) / 2
+                if mid > 0:
+                    spread_bps = (ask - bid) / mid * 10000
 
             # Simulate fills with probability
             import random
@@ -72,6 +115,15 @@ class BacktestEngine:
             peak_pnl = max(peak_pnl, total)
             drawdown = peak_pnl - total
             max_drawdown = max(max_drawdown, drawdown)
+
+            self.last_results.append({
+                "timestamp": tick.timestamp,
+                "action": "tick",
+                "price": tick.oracle_price,
+                "spread": spread_bps,
+                "inventory": self.agent.position.base_balance,
+                "pnl": total,
+            })
 
         # Compute Sharpe ratio
         if len(pnl_curve) > 1:
@@ -94,6 +146,17 @@ class BacktestEngine:
             final_position=self.agent.position.base_balance,
             fill_rate=total_fills / len(data) if data else 0,
         )
+
+    @staticmethod
+    def print_summary(result: BacktestResult) -> None:
+        print("Backtest Results:")
+        print(f"  Ticks:        {result.total_ticks}")
+        print(f"  Fills:        {result.total_fills} ({result.fill_rate:.1%} fill rate)")
+        print(f"  Realized PnL: {result.realized_pnl:.2f}")
+        print(f"  Unrealized:   {result.unrealized_pnl:.2f}")
+        print(f"  Total PnL:    {result.total_pnl:.2f}")
+        print(f"  Max Drawdown: {result.max_drawdown:.2f}")
+        print(f"  Sharpe Ratio: {result.sharpe_ratio:.3f}")
 
     @staticmethod
     def generate_mock_data(base_price: float, ticks: int, volatility: float = 0.02) -> list[BacktestTick]:
