@@ -1,7 +1,9 @@
 """Backtesting engine — replay historical data through agents."""
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 from ..agents.base_agent import BaseAgent, Fill, Side
@@ -28,6 +30,7 @@ class BacktestResult:
     sharpe_ratio: float
     final_position: float
     fill_rate: float  # fills per tick
+    fills: list[dict] = field(default_factory=list)  # per-fill record
 
 
 class BacktestEngine:
@@ -38,11 +41,15 @@ class BacktestEngine:
         self.fill_probability = fill_probability
 
     def run(self, data: list[BacktestTick]) -> BacktestResult:
-        """Run backtest over historical data."""
+        """Run backtest over historical data.
+
+        Returns a BacktestResult with summary metrics and a per-fill record list.
+        """
         pnl_curve = []
         peak_pnl = 0.0
         max_drawdown = 0.0
         total_fills = 0
+        fill_records: list[dict] = []
 
         for tick in data:
             market_data = {
@@ -65,6 +72,21 @@ class BacktestEngine:
                     )
                     self.agent.on_fill(fill)
                     total_fills += 1
+
+                    pnl = self.agent.get_pnl(tick.oracle_price)
+                    fill_records.append({
+                        "timestamp": tick.timestamp,
+                        "action": fill.side.value,
+                        "price": round(fill.price, 6),
+                        "size": round(fill.size, 6),
+                        "fee": round(fill.fee, 6),
+                        "spread": round(abs(market_data["on_chain_price"] - market_data["oracle_price"]), 6) if market_data.get("on_chain_price") else 0.0,
+                        "inventory": round(self.agent.position.base_balance, 6),
+                        "quote_balance": round(self.agent.position.quote_balance, 2),
+                        "realized_pnl": round(pnl["realized"], 4),
+                        "unrealized_pnl": round(pnl["unrealized"], 4),
+                        "total_pnl": round(pnl["total"], 4),
+                    })
 
             pnl = self.agent.get_pnl(tick.oracle_price)
             total = pnl["total"]
@@ -93,7 +115,40 @@ class BacktestEngine:
             sharpe_ratio=sharpe,
             final_position=self.agent.position.base_balance,
             fill_rate=total_fills / len(data) if data else 0,
+            fills=fill_records,
         )
+
+    def export(self, result: BacktestResult, output_path: str, fmt: str = "csv") -> str:
+        """Export backtest fill records to CSV or Parquet.
+
+        Args:
+            result: BacktestResult from run().
+            output_path: File path for the output (extension is auto-adjusted).
+            fmt: "csv" or "parquet".
+
+        Returns:
+            The resolved output file path.
+        """
+        if not result.fills:
+            logger.warning("No fills to export.")
+            return ""
+
+        import pandas as pd
+
+        df = pd.DataFrame(result.fills)
+        path = Path(output_path)
+
+        if fmt == "parquet":
+            path = path.with_suffix(".parquet")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            df.to_parquet(str(path), index=False)
+        else:
+            path = path.with_suffix(".csv")
+            path.parent.mkdir(parents=True, exist_ok=True)
+            df.to_csv(str(path), index=False)
+
+        logger.info(f"Exported {len(df)} fills to {path}")
+        return str(path)
 
     @staticmethod
     def generate_mock_data(base_price: float, ticks: int, volatility: float = 0.02) -> list[BacktestTick]:
@@ -133,3 +188,5 @@ if __name__ == "__main__":
     print(f"  Total PnL:    {result.total_pnl:.2f}")
     print(f"  Max Drawdown: {result.max_drawdown:.2f}")
     print(f"  Sharpe Ratio: {result.sharpe_ratio:.3f}")
+    print(f"  Fills exported: {engine.export(result, 'backtest_output.csv')}")
+    print(f"  Parquet export: {engine.export(result, 'backtest_output', fmt='parquet')}")
