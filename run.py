@@ -24,7 +24,7 @@ def load_config(path: str) -> dict:
         return yaml.safe_load(f)
 
 
-def run_simulate(config: dict):
+def run_simulate(config: dict, output_path: str = None, output_fmt: str = "csv"):
     """Run a backtest simulation."""
     logging.info("=== SIMULATE MODE ===")
     pair = config.get("pair", "ETH/USDC")
@@ -50,6 +50,11 @@ def run_simulate(config: dict):
     results = engine.run(ticks=config.get("ticks", 100))
     engine.print_summary(results)
 
+    if output_path:
+        path = engine.export(results, output_path, fmt=output_fmt)
+        if path:
+            logging.info(f"Fills exported to {path} ({results.total_fills} rows)")
+
 
 def run_live(config: dict):
     """Run live market making (requires API keys + wallet)."""
@@ -65,6 +70,8 @@ def main():
     parser.add_argument("--pair", help="Trading pair (e.g., ETH/USDC)")
     parser.add_argument("--spread", type=float, help="Spread percentage")
     parser.add_argument("--ticks", type=int, default=100, help="Simulation ticks")
+    parser.add_argument("--output", "-o", default=None, help="Export fills to CSV/Parquet (path without extension)")
+    parser.add_argument("--format", "-f", default="csv", choices=["csv", "parquet"], help="Export format (default: csv)")
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -84,7 +91,7 @@ def main():
         config["ticks"] = args.ticks
 
     if args.simulate or config.get("simulate", True):
-        run_simulate(config)
+        run_simulate(config, output_path=args.output, output_fmt=args.format)
     else:
         run_live(config)
 
