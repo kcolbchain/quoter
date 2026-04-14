@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>quoter — kcolbchain market-making agent</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b0d10;--bg1:#11141a;--bg2:#181c24;--bg3:#1f2430;
+  --border:#262d3a;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --accent:#fbbf24;--accent2:#f59e0b;--green:#22c55e;--red:#ef4444;
+  --blue:#3b82f6;--purple:#a78bfa;
+  --font:'SF Mono','Fira Code','Cascadia Code',monospace;
+  --sans:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --radius:6px;
+}
+html{font-size:14px}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);line-height:1.5;min-height:100vh;display:flex;flex-direction:column}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* HEADER */
+.header{background:var(--bg1);border-bottom:1px solid var(--border);padding:.75rem 1.5rem;display:flex;align-items:center;gap:1rem;flex-shrink:0}
+.header h1{font-family:var(--font);font-size:1.1rem;font-weight:600;color:var(--accent)}
+.header h1 span{color:var(--text3);font-weight:400}
+.header-links{margin-left:auto;display:flex;gap:1rem;font-size:.8rem}
+
+/* LAYOUT */
+.app{display:flex;flex:1;overflow:hidden}
+.sidebar{width:260px;background:var(--bg1);border-right:1px solid var(--border);padding:1rem;overflow-y:auto;flex-shrink:0}
+.main{flex:1;overflow-y:auto;padding:1.25rem}
+
+/* SIDEBAR */
+.sidebar h2{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:.75rem}
+.strat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem;margin-bottom:.5rem;cursor:pointer;transition:border-color .15s}
+.strat-card:hover,.strat-card.active{border-color:var(--accent)}
+.strat-card.active{background:var(--bg3)}
+.strat-card h3{font-size:.85rem;font-weight:600;margin-bottom:.25rem}
+.strat-card p{font-size:.72rem;color:var(--text2);line-height:1.4}
+
+/* PANELS */
+.panel{background:var(--bg1);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:1rem}
+.panel-head{padding:.6rem 1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.5rem}
+.panel-head h3{font-size:.8rem;font-weight:600}
+.panel-body{padding:1rem}
+.dot{width:6px;height:6px;border-radius:50%;display:inline-block}
+.dot-amber{background:var(--accent)}
+.dot-green{background:var(--green)}
+.dot-blue{background:var(--blue)}
+
+/* PARAMS */
+.param-group{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.param{display:flex;flex-direction:column;gap:.25rem}
+.param label{font-size:.7rem;color:var(--text2);text-transform:uppercase;letter-spacing:.05em}
+.param input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:4px;background:var(--bg3);border-radius:2px;outline:none}
+.param input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer}
+.param .val{font-family:var(--font);font-size:.8rem;color:var(--accent)}
+
+/* BUTTONS */
+.btn{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:.8rem;cursor:pointer;transition:all .15s}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn-primary{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:600}
+.btn-primary:hover{background:var(--accent2);border-color:var(--accent2);color:var(--bg)}
+.btn-row{display:flex;gap:.5rem;margin-top:.75rem}
+
+/* CHARTS */
+.chart-container{background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem;margin-bottom:.75rem;overflow:hidden}
+.chart-container svg{width:100%;display:block}
+.chart-label{font-size:.65rem;fill:var(--text3);font-family:var(--font)}
+.chart-grid{stroke:var(--border);stroke-width:0.5}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.5rem}
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);padding:.6rem .75rem}
+.stat .label{font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em}
+.stat .value{font-family:var(--font);font-size:1rem;font-weight:600;margin-top:.15rem}
+.stat .value.pos{color:var(--green)}
+.stat .value.neg{color:var(--red)}
+
+/* VENUE TABLE */
+.venue-table{width:100%;border-collapse:collapse;font-size:.8rem}
+.venue-table th{text-align:left;font-size:.65rem;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;padding:.4rem .6rem;border-bottom:1px solid var(--border)}
+.venue-table td{padding:.5rem .6rem;border-bottom:1px solid var(--border)}
+.venue-table tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:.1rem .4rem;border-radius:3px;font-size:.65rem;font-weight:600}
+.badge-cex{background:#1e3a5f;color:#60a5fa}
+.badge-dex{background:#1a3a2a;color:#4ade80}
+
+/* COMPARE */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+.compare-winner{border-color:var(--green) !important}
+.compare-label{font-size:.7rem;text-align:center;color:var(--text2);margin-bottom:.5rem}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg)}
+::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:3px}
+
+/* RESPONSIVE */
+@media(max-width:768px){
+  .app{flex-direction:column}
+  .sidebar{width:100%;border-right:none;border-bottom:1px solid var(--border);max-height:180px}
+  .param-group{grid-template-columns:1fr}
+  .compare-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>quoter <span>/ market-making agent</span></h1>
+  <div class="header-links">
+    <a href="https://github.com/kcolbchain/quoter" target="_blank">source</a>
+    <a href="https://github.com/kcolbchain/quoter/wiki" target="_blank">docs</a>
+    <a href="https://github.com/kcolbchain/quoter/issues/2" target="_blank">issue #2</a>
+    <a href="https://kcolbchain.com/meridian/" target="_blank">meridian</a>
+  </div>
+</div>
+
+<div class="app">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <h2>Strategy Selector</h2>
+    <div class="strat-card active" data-strat="as" onclick="selectStrategy('as')">
+      <h3>Avellaneda-Stoikov</h3>
+      <p>Optimal market-making under inventory risk. Dynamically adjusts quotes based on risk aversion, volatility, and order arrival intensity.</p>
+    </div>
+    <div class="strat-card" data-strat="grid" onclick="selectStrategy('grid')">
+      <h3>Grid</h3>
+      <p>Place resting orders at fixed price intervals around a base. Simple, robust, works best in range-bound markets.</p>
+    </div>
+    <div class="strat-card" data-strat="skew" onclick="selectStrategy('skew')">
+      <h3>Inventory-Skew</h3>
+      <p>Symmetric base spread skewed by current inventory. Encourages mean-reversion of position while capturing spread.</p>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- PARAMETERS -->
+    <div class="panel">
+      <div class="panel-head"><span class="dot dot-amber"></span><h3>Parameters</h3><span id="strat-name" style="margin-left:auto;font-size:.7rem;color:var(--text3)">Avellaneda-Stoikov</span></div>
+      <div class="panel-body">
+        <!-- AS params -->
+        <div id="params-as" class="param-group">
+          <div class="param">
+            <label>Risk Aversion (gamma)</label>
+            <input type="range" min="0.01" max="1" step="0.01" value="0.3" oninput="updateVal(this)">
+            <span class="val">0.30</span>
+          </div>
+          <div class="param">
+            <label>Volatility Estimate</label>
+            <input type="range" min="0.001" max="0.1" step="0.001" value="0.02" oninput="updateVal(this)">
+            <span class="val">0.020</span>
+          </div>
+          <div class="param">
+            <label>Order Arrival Rate (lambda)</label>
+            <input type="range" min="0.1" max="5" step="0.1" value="1.5" oninput="updateVal(this)">
+            <span class="val">1.50</span>
+          </div>
+          <div class="param">
+            <label>Time Horizon (s)</label>
+            <input type="range" min="10" max="600" step="10" value="300" oninput="updateVal(this)">
+            <span class="val">300</span>
+          </div>
+        </div>
+        <!-- Grid params -->
+        <div id="params-grid" class="param-group" style="display:none">
+          <div class="param">
+            <label>Grid Spacing (bps)</label>
+            <input type="range" min="5" max="200" step="5" value="50" oninput="updateVal(this)">
+            <span class="val">50</span>
+          </div>
+          <div class="param">
+            <label>Number of Levels</label>
+            <input type="range" min="1" max="20" step="1" value="5" oninput="updateVal(this)">
+            <span class="val">5</span>
+          </div>
+          <div class="param">
+            <label>Base Price</label>
+            <input type="range" min="50" max="200" step="1" value="100" oninput="updateVal(this)">
+            <span class="val">100</span>
+          </div>
+          <div class="param">
+            <label>Rebalance Threshold (%)</label>
+            <input type="range" min="0.1" max="5" step="0.1" value="1.0" oninput="updateVal(this)">
+            <span class="val">1.0</span>
+          </div>
+        </div>
+        <!-- Skew params -->
+        <div id="params-skew" class="param-group" style="display:none">
+          <div class="param">
+            <label>Base Spread (bps)</label>
+            <input type="range" min="5" max="200" step="5" value="30" oninput="updateVal(this)">
+            <span class="val">30</span>
+          </div>
+          <div class="param">
+            <label>Skew Factor</label>
+            <input type="range" min="0.01" max="2" step="0.01" value="0.5" oninput="updateVal(this)">
+            <span class="val">0.50</span>
+          </div>
+          <div class="param">
+            <label>Max Inventory</label>
+            <input type="range" min="1" max="100" step="1" value="20" oninput="updateVal(this)">
+            <span class="val">20</span>
+          </div>
+          <div class="param">
+            <label>Decay Rate</label>
+            <input type="range" min="0.001" max="0.1" step="0.001" value="0.01" oninput="updateVal(this)">
+            <span class="val">0.010</span>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="runBacktest()">&#9654; Run Backtest</button>
+          <button class="btn" onclick="runCompare()">&#9878; Compare Two Strategies</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS (single) -->
+    <div id="results" style="display:none">
+      <div class="panel">
+        <div class="panel-head"><span class="dot dot-green"></span><h3>Price + Quotes</h3></div>
+        <div class="panel-body">
+          <div class="chart-container" id="chart-price"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span class="dot dot-blue"></span><h3>PnL Trajectory</h3></div>
+        <div class="panel-body">
+          <div class="chart-container" id="chart-pnl"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><span class="dot dot-amber"></span><h3>Summary Stats</h3></div>
+        <div class="panel-body">
+          <div class="stats-row" id="stats-row"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULTS (compare) -->
+    <div id="compare-results" style="display:none">
+      <div class="panel">
+        <div class="panel-head"><span class="dot dot-amber"></span><h3>Strategy Comparison</h3></div>
+        <div class="panel-body">
+          <div class="compare-grid">
+            <div>
+              <div class="compare-label" id="cmp-label-a"></div>
+              <div class="chart-container" id="cmp-chart-a"></div>
+              <div class="stats-row" id="cmp-stats-a" style="margin-top:.5rem"></div>
+            </div>
+            <div>
+              <div class="compare-label" id="cmp-label-b"></div>
+              <div class="chart-container" id="cmp-chart-b"></div>
+              <div class="stats-row" id="cmp-stats-b" style="margin-top:.5rem"></div>
+            </div>
+          </div>
+          <div id="cmp-verdict" style="text-align:center;margin-top:1rem;font-size:.85rem;color:var(--accent);font-weight:600"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VENUES -->
+    <div class="panel">
+      <div class="panel-head"><span class="dot dot-blue"></span><h3>Multi-Venue</h3></div>
+      <div class="panel-body">
+        <table class="venue-table">
+          <thead><tr><th>Venue</th><th>Type</th><th>Latency (est.)</th><th>Maker Fee</th><th>Taker Fee</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td>Binance Spot</td><td><span class="badge badge-cex">CEX</span></td><td>~5 ms</td><td>0.02%</td><td>0.04%</td><td style="color:var(--green)">connected</td></tr>
+            <tr><td>Coinbase</td><td><span class="badge badge-cex">CEX</span></td><td>~12 ms</td><td>0.04%</td><td>0.06%</td><td style="color:var(--green)">connected</td></tr>
+            <tr><td>Uniswap V3</td><td><span class="badge badge-dex">DEX</span></td><td>~2 s (block)</td><td>0.05%</td><td>0.30%</td><td style="color:var(--accent)">watching</td></tr>
+            <tr><td>Curve</td><td><span class="badge badge-dex">DEX</span></td><td>~2 s (block)</td><td>0.02%</td><td>0.04%</td><td style="color:var(--accent)">watching</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── state ── */
+let currentStrat = 'as';
+const stratNames = { as:'Avellaneda-Stoikov', grid:'Grid', skew:'Inventory-Skew' };
+
+function selectStrategy(s) {
+  currentStrat = s;
+  document.querySelectorAll('.strat-card').forEach(c => c.classList.toggle('active', c.dataset.strat === s));
+  ['as','grid','skew'].forEach(k => document.getElementById('params-'+k).style.display = k===s ? 'grid' : 'none');
+  document.getElementById('strat-name').textContent = stratNames[s];
+}
+
+function updateVal(el) {
+  const v = parseFloat(el.value);
+  el.nextElementSibling.textContent = v >= 10 ? String(Math.round(v)) : v.toFixed(v < 0.1 ? 3 : 2);
+}
+
+function getParams(strat) {
+  const el = document.getElementById('params-' + strat);
+  const inputs = el.querySelectorAll('input[type=range]');
+  return Array.from(inputs).map(i => parseFloat(i.value));
+}
+
+/* ── simulation engine ── */
+function generateMidPrices(n, vol) {
+  const prices = [100];
+  for (let i = 1; i < n; i++) {
+    const dw = (Math.random() - 0.5) * 2 * vol;
+    prices.push(prices[i-1] * (1 + dw));
+  }
+  return prices;
+}
+
+function simulateStrategy(strat, params, mids) {
+  const n = mids.length;
+  const bids = [], asks = [], pnls = [];
+  let inventory = 0, cash = 0, fills = 0;
+
+  for (let i = 0; i < n; i++) {
+    const mid = mids[i];
+    let halfSpread;
+
+    if (strat === 'as') {
+      const [gamma, sigma, lambda, T] = params;
+      const t = i / n;
+      const remaining = Math.max(0.01, 1 - t);
+      const reservation = mid - inventory * gamma * sigma * sigma * remaining;
+      halfSpread = (gamma * sigma * sigma * remaining) / 2 + Math.log(1 + gamma / lambda) / gamma;
+      bids.push(reservation - halfSpread);
+      asks.push(reservation + halfSpread);
+    } else if (strat === 'grid') {
+      const [spacing_bps, levels, base, _rebal] = params;
+      const spacing = mid * spacing_bps / 10000;
+      halfSpread = spacing;
+      bids.push(mid - halfSpread);
+      asks.push(mid + halfSpread);
+    } else {
+      const [baseSpread_bps, skewFactor, maxInv, _decay] = params;
+      const base = mid * baseSpread_bps / 10000;
+      const skew = skewFactor * (inventory / Math.max(maxInv, 1)) * base;
+      bids.push(mid - base / 2 - skew);
+      asks.push(mid + base / 2 - skew);
+    }
+
+    // simulate fills
+    if (i > 0) {
+      const prevMid = mids[i - 1];
+      // buy fill: price dropped to our bid
+      if (mid <= bids[i]) {
+        inventory += 1;
+        cash -= bids[i];
+        fills++;
+      }
+      // sell fill: price rose to our ask
+      if (mid >= asks[i]) {
+        inventory -= 1;
+        cash += asks[i];
+        fills++;
+      }
+    }
+
+    const markToMarket = cash + inventory * mid;
+    pnls.push(markToMarket);
+  }
+
+  // stats
+  const totalPnl = pnls[pnls.length - 1];
+  let maxDD = 0, peak = -Infinity;
+  for (const p of pnls) { peak = Math.max(peak, p); maxDD = Math.min(maxDD, p - peak); }
+  const returns = [];
+  for (let i = 1; i < pnls.length; i++) returns.push(pnls[i] - pnls[i-1]);
+  const mean = returns.reduce((a,b)=>a+b,0)/returns.length;
+  const std = Math.sqrt(returns.reduce((a,b)=>a+(b-mean)**2,0)/returns.length) || 0.001;
+  const sharpe = (mean / std) * Math.sqrt(252 * 24 * 60);
+  const spreads = asks.map((a,i) => a - bids[i]);
+  const avgSpread = spreads.reduce((a,b)=>a+b,0)/spreads.length;
+
+  return { bids, asks, pnls, totalPnl, maxDD, fills, sharpe, avgSpread };
+}
+
+/* ── SVG chart renderer ── */
+function makeSVG(w, h) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.setAttribute('preserveAspectRatio','none');
+  svg.style.height = h + 'px';
+  return svg;
+}
+
+function polyline(svg, xs, ys, color, width, dash) {
+  const W = 800, H = 200, pad = 30;
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const rangeY = maxY - minY || 1;
+  let d = '';
+  for (let i = 0; i < xs.length; i++) {
+    const x = pad + (i / (xs.length - 1)) * (W - 2 * pad);
+    const y = pad + (1 - (ys[i] - minY) / rangeY) * (H - 2 * pad);
+    d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+  }
+  const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+  path.setAttribute('d', d);
+  path.setAttribute('fill','none');
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', width || 1.5);
+  if (dash) path.setAttribute('stroke-dasharray', dash);
+  svg.appendChild(path);
+}
+
+function addYAxis(svg, minY, maxY) {
+  const W = 800, H = 200, pad = 30;
+  const steps = 4;
+  for (let i = 0; i <= steps; i++) {
+    const y = pad + (i / steps) * (H - 2 * pad);
+    const val = maxY - (i / steps) * (maxY - minY);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', pad); line.setAttribute('x2', W - pad);
+    line.setAttribute('y1', y); line.setAttribute('y2', y);
+    line.setAttribute('class','chart-grid');
+    svg.appendChild(line);
+    const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x', pad - 4); txt.setAttribute('y', y + 3);
+    txt.setAttribute('text-anchor','end');
+    txt.setAttribute('class','chart-label');
+    txt.textContent = val.toFixed(2);
+    svg.appendChild(txt);
+  }
+}
+
+function renderPriceChart(container, mids, bids, asks) {
+  container.innerHTML = '';
+  const svg = makeSVG(800, 200);
+  const all = [...mids, ...bids, ...asks];
+  const mn = Math.min(...all), mx = Math.max(...all);
+  addYAxis(svg, mn, mx);
+  const xs = Array.from({length: mids.length}, (_, i) => i);
+  polyline(svg, xs, asks, '#ef4444', 1, '4,2');
+  polyline(svg, xs, bids, '#22c55e', 1, '4,2');
+  polyline(svg, xs, mids, '#e2e8f0', 1.5);
+  // legend
+  const leg = document.createElementNS('http://www.w3.org/2000/svg','text');
+  leg.setAttribute('x', 40); leg.setAttribute('y', 16);
+  leg.setAttribute('class','chart-label');
+  leg.innerHTML = '<tspan fill="#e2e8f0">mid</tspan>  <tspan fill="#22c55e">bid</tspan>  <tspan fill="#ef4444">ask</tspan>';
+  svg.appendChild(leg);
+  container.appendChild(svg);
+}
+
+function renderPnlChart(container, pnls) {
+  container.innerHTML = '';
+  const svg = makeSVG(800, 160);
+  const mn = Math.min(...pnls), mx = Math.max(...pnls);
+  addYAxis(svg, mn, mx);
+  const xs = Array.from({length: pnls.length}, (_, i) => i);
+  // fill area
+  const W = 800, H = 160, pad = 30;
+  const rangeY = mx - mn || 1;
+  let d = `M${pad},${pad + (1 - (pnls[0] - mn) / rangeY) * (H - 2 * pad)}`;
+  for (let i = 1; i < pnls.length; i++) {
+    const x = pad + (i / (pnls.length - 1)) * (W - 2 * pad);
+    const y = pad + (1 - (pnls[i] - mn) / rangeY) * (H - 2 * pad);
+    d += `L${x.toFixed(1)},${y.toFixed(1)}`;
+  }
+  const zeroY = pad + (1 - (0 - mn) / rangeY) * (H - 2 * pad);
+  const fillPath = document.createElementNS('http://www.w3.org/2000/svg','path');
+  fillPath.setAttribute('d', d + `L${W-pad},${zeroY}L${pad},${zeroY}Z`);
+  fillPath.setAttribute('fill', pnls[pnls.length-1] >= 0 ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)');
+  svg.appendChild(fillPath);
+  const color = pnls[pnls.length-1] >= 0 ? '#22c55e' : '#ef4444';
+  polyline(svg, xs, pnls, color, 1.5);
+  container.appendChild(svg);
+}
+
+function renderStats(container, r) {
+  container.innerHTML = `
+    <div class="stat"><div class="label">Total PnL</div><div class="value ${r.totalPnl>=0?'pos':'neg'}">${r.totalPnl>=0?'+':''}${r.totalPnl.toFixed(2)}</div></div>
+    <div class="stat"><div class="label">Max Drawdown</div><div class="value neg">${r.maxDD.toFixed(2)}</div></div>
+    <div class="stat"><div class="label">Fill Count</div><div class="value">${r.fills}</div></div>
+    <div class="stat"><div class="label">Sharpe Ratio</div><div class="value ${r.sharpe>=0?'pos':'neg'}">${r.sharpe.toFixed(2)}</div></div>
+    <div class="stat"><div class="label">Avg Spread</div><div class="value">${r.avgSpread.toFixed(4)}</div></div>
+  `;
+}
+
+/* ── run backtest ── */
+function runBacktest() {
+  const params = getParams(currentStrat);
+  const vol = currentStrat === 'as' ? params[1] : 0.02;
+  const mids = generateMidPrices(500, vol);
+  const result = simulateStrategy(currentStrat, params, mids);
+
+  document.getElementById('results').style.display = 'block';
+  document.getElementById('compare-results').style.display = 'none';
+
+  renderPriceChart(document.getElementById('chart-price'), mids, result.bids, result.asks);
+  renderPnlChart(document.getElementById('chart-pnl'), result.pnls);
+  renderStats(document.getElementById('stats-row'), result);
+}
+
+/* ── compare mode ── */
+function runCompare() {
+  const strats = Object.keys(stratNames);
+  const a = currentStrat;
+  // pick next strategy for comparison
+  const bIdx = (strats.indexOf(a) + 1) % strats.length;
+  const b = strats[bIdx];
+
+  const paramsA = getParams(a);
+  const paramsB = getParams(b);
+  const vol = a === 'as' ? paramsA[1] : 0.02;
+  // same price path for fair comparison
+  const mids = generateMidPrices(500, vol);
+  const rA = simulateStrategy(a, paramsA, mids);
+  const rB = simulateStrategy(b, paramsB, mids);
+
+  document.getElementById('results').style.display = 'none';
+  document.getElementById('compare-results').style.display = 'block';
+
+  document.getElementById('cmp-label-a').textContent = stratNames[a];
+  document.getElementById('cmp-label-b').textContent = stratNames[b];
+
+  // PnL charts side by side
+  renderPnlChart(document.getElementById('cmp-chart-a'), rA.pnls);
+  renderPnlChart(document.getElementById('cmp-chart-b'), rB.pnls);
+
+  renderStats(document.getElementById('cmp-stats-a'), rA);
+  renderStats(document.getElementById('cmp-stats-b'), rB);
+
+  // highlight winner
+  const aWins = rA.totalPnl > rB.totalPnl;
+  document.getElementById('cmp-chart-a').classList.toggle('compare-winner', aWins);
+  document.getElementById('cmp-chart-b').classList.toggle('compare-winner', !aWins);
+
+  const winner = aWins ? stratNames[a] : stratNames[b];
+  const diff = Math.abs(rA.totalPnl - rB.totalPnl).toFixed(2);
+  document.getElementById('cmp-verdict').textContent = `${winner} wins by ${diff} PnL on this path`;
+}
+</script>
+</body>
+</html>
