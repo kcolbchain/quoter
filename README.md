@@ -1,89 +1,105 @@
-# agent-amm
+# quoter
 
-Autonomous market-making agents for RWA and long-tail assets — by [kcolbchain](https://kcolbchain.com) (est. 2015).
+Venue-agnostic market-making strategy framework — by [kcolbchain](https://kcolbchain.com) (est. 2015).
 
-## The Problem
+The strategy core. Pluggable quoting strategies, a backtest engine, and exchange connectors. Bring your own venue.
 
-Current AMM models (constant product, concentrated liquidity) were designed for liquid, fungible tokens with continuous price discovery. They fail for real-world assets:
+> Looking for the **on-chain RWA stack** (vault contracts, oracle adapter, EVM execution, risk manager)? See [`kcolbchain/meridian`](https://github.com/kcolbchain/meridian) — meridian builds on quoter's strategy core and adds chain connectivity, on-chain execution, and ERC-4626 LP vaults.
 
-- **Illiquid** — RWA trades are infrequent, thin order books
-- **Irregular pricing** — real estate, commodities, private credit don't have second-by-second price feeds
-- **Geography-specific** — the same asset class prices differently across jurisdictions
-- **Compliance-gated** — not every counterparty can trade every asset
+## What's in the box
 
-Constant product AMMs bleed capital in these conditions. LPs get destroyed by informed flow. Spreads are either too wide (no trades) or too tight (adverse selection).
+- **Strategies** — `constant_spread`, `adaptive_spread` (volatility + inventory aware). Plug in your own by subclassing `Strategy`.
+- **Backtest engine** — tick-driven, deterministic. CSV/Parquet export of fills.
+- **Connectors** — base interface + reference connectors. Drop in CEX WebSockets / DEX RPC / your own venue.
+- **Oracle abstraction** — mock + real `PriceFeed` source. Same interface for tests and live.
+- **Inventory + risk hooks** — strategies see current position so they can skew quotes against directional exposure.
 
-## The Solution
-
-Autonomous agents that manage liquidity positions intelligently:
-
-- **Oracle-driven pricing** — agents price based on real-world signals, not just on-chain pool state
-- **Adaptive spreads** — widen in volatility, narrow in stability, adjust for inventory risk
-- **Geography-aware** — pricing adjustments per jurisdiction
-- **Inventory management** — agents rebalance to avoid directional exposure
-- **Backtestable** — every strategy can be tested against historical data before deployment
-
-## Architecture
-
-```
-┌─────────────────────────────────────┐
-│            Agent Framework          │
-├──────────┬──────────┬───────────────┤
-│ Strategies│  Oracle  │  Backtest    │
-│          │  Feeds   │  Engine      │
-├──────────┴──────────┴───────────────┤
-│         Position & Risk Mgmt       │
-├─────────────────────────────────────┤
-│      Chain Connectors (EVM)        │
-└─────────────────────────────────────┘
-```
-
-## Getting Started
+## Quick start
 
 ```bash
-git clone https://github.com/kcolbchain/agent-amm.git
-cd agent-amm
+git clone https://github.com/kcolbchain/quoter.git
+cd quoter
 pip install -r requirements.txt
 
-# Run with mock data
-python -m src.agents.rwa_market_maker --config config/default.yaml --simulate
+# Backtest
+python run.py --simulate --pair ETH/USDC --spread 0.5 --ticks 200
 
-# Backtest a strategy
-python -m src.backtest.engine --strategy adaptive_spread --data data/sample.csv
+# Backtest with adaptive strategy
+python run.py --simulate --config config/default.yaml --output fills
+
+# Live mode (requires venue connector + keys; stub by default)
+python run.py --config config/live.yaml
 ```
 
 ## Strategies
 
-| Strategy | Description |
-|----------|-------------|
-| `constant_spread` | Fixed bid/ask spread — baseline strategy |
-| `adaptive_spread` | Spread adjusts to volatility + inventory exposure |
+| Strategy | What it does |
+|---|---|
+| `constant_spread` | Fixed bid/ask spread around mid — baseline. |
+| `adaptive_spread` | Spread widens with realised volatility, narrows in calm markets, skews against inventory. |
 
-Build your own by extending `BaseStrategy` in `src/strategies/`.
+Add your own by subclassing `Strategy` in `src/strategies/`. `adaptive_spread.py` is a clean reference shape.
 
-## Project Structure
+## Architecture
+
+```
+┌─────────────────────────────────────────┐
+│           Strategy (pluggable)          │
+│   constant / adaptive / your own        │
+├─────────────────────────────────────────┤
+│  Agent loop  ─►  Oracle  ─►  Connector  │
+│       │              │            │     │
+│       └─── Inventory + risk hooks ──────┤
+├─────────────────────────────────────────┤
+│             Backtest engine             │
+└─────────────────────────────────────────┘
+```
+
+## Project structure
 
 ```
 src/
-  agents/          — Agent implementations
-    base_agent.py  — Abstract base agent
-    rwa_market_maker.py — RWA-specific market maker
-  strategies/      — Pluggable trading strategies
-  oracle/          — Price feed integrations
-  backtest/        — Backtesting engine
-  utils/           — Config, logging, helpers
-config/            — YAML configuration files
-tests/             — Test suite
+  agents/        — base_agent, rwa_market_maker (reference agent)
+  strategies/    — constant_spread, adaptive_spread, your own
+  oracle/        — PriceFeed abstraction (mock + live)
+  connectors/    — venue interface; bring your own CEX/DEX adapter
+  backtest/      — tick-driven engine + fill export
+  utils/         — config, logging, inventory helpers
+config/          — default.yaml, live.yaml
+tests/           — pytest suite
+```
+
+## Where this fits
+
+- **Strategy library you can drop into any venue** — quoter is on its own here. The strategies and backtest engine don't assume a chain or a centralised venue.
+- **Reference on-chain deployment** — see [`kcolbchain/meridian`](https://github.com/kcolbchain/meridian). Meridian uses quoter's strategies and ships ERC-4626 vault contracts, an oracle adapter, EVM execution, and a risk manager on top.
+- **Stablecoin / RWA issuance** — quoter doesn't issue tokens. See [`kcolbchain/stablecoin-toolkit`](https://github.com/kcolbchain/stablecoin-toolkit).
+- **Audit hardening before a strategy goes live** — see [`kcolbchain/audit-checklist`](https://github.com/kcolbchain/audit-checklist).
+
+## Running the tests
+
+```bash
+pytest -q
 ```
 
 ## Contributing
 
-We welcome contributions. See open issues tagged `good-first-issue` for starting points.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [CONTRIBUTORS.md](CONTRIBUTORS.md). Issues tagged `good-first-issue` are great entry points.
 
-1. Fork the repo
-2. Create a feature branch
-3. Submit a PR with tests
+## Working with kcolbchain
+
+We build, deploy, and run market-making infrastructure for partner protocols. If you'd like to talk about a paid integration or managed market-making, see [kcolbchain.com/work-with-us](https://kcolbchain.com/work-with-us/).
+
+## Links
+
+- **Docs:** https://docs.kcolbchain.com/quoter/
+- **All projects:** https://docs.kcolbchain.com/
+- **kcolbchain:** https://kcolbchain.com
 
 ## License
 
 MIT — see [LICENSE](LICENSE)
+
+---
+
+*Founded by [Abhishek Krishna](https://abhishekkrishna.com) • GitHub: [@abhicris](https://github.com/abhicris)*
