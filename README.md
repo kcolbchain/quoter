@@ -1,4 +1,5 @@
 # quoter
+[![repo](https://img.shields.io/badge/repo-quoter-blue)](https://github.com/kcolbchain/quoter)
 
 Venue-agnostic market-making strategy framework — by [kcolbchain](https://kcolbchain.com) (est. 2015).
 
