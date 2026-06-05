@@ -28,6 +28,10 @@ python run.py --simulate --pair ETH/USDC --spread 0.5 --ticks 200
 # Backtest with adaptive strategy
 python run.py --simulate --config config/default.yaml --output fills
 
+# Backtest the simple AMM LP preset
+# Uses presets/simple-amm-lp.yaml for balances, fee/spread, and synthetic price path.
+python run.py --simulate --config presets/simple-amm-lp.yaml
+
 # Live mode (requires venue connector + keys; stub by default)
 python run.py --config config/live.yaml
 ```

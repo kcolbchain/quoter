@@ -1,0 +1,44 @@
+# Simple AMM liquidity-provider preset for a balanced ETH/USDC pool.
+# Models fee capture, price volatility, and conservative inventory sizing for
+# a passive LP strategy that periodically rebalances around the current price.
+preset:
+  name: simple-amm-lp
+  description: Balanced ETH/USDC AMM LP strategy with fee capture and rebalancing assumptions.
+
+pair: ETH/USDC
+strategy: adaptive
+spread: 0.3
+vol_window: 30
+ticks: 250
+simulate: true
+
+agent:
+  initial_base: 10
+  initial_quote: 30000
+  base_spread_bps: 30
+  max_order_size_pct: 0.05
+  max_exposure: 25
+  max_inventory_pct: 0.5
+  max_base_position: 20
+  geography: "global"
+  liquid_volume_threshold: 2500000
+
+backtest:
+  fill_probability: 0.45
+  fee_bps: 30
+  ticks: 250
+  base_price: 3000.0
+  volatility: 0.015
+
+amm_lp:
+  pool_type: constant_product
+  initial_price: 3000.0
+  base_asset: ETH
+  quote_asset: USDC
+  initial_base_liquidity: 10
+  initial_quote_liquidity: 30000
+  target_allocation_pct: 0.5
+  fee_bps: 30
+  slippage_bps: 5
+  rebalance_threshold_pct: 0.08
+  impermanent_loss_tracking: true
