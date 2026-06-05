@@ -1,0 +1,32 @@
+# simple-amm-lp: Simple AMM Liquidity Provider Strategy
+# -------------------------------------------------------
+# This preset configures the quoter agent as a basic automated market
+# maker liquidity provider. Suitable for prototyping and backtesting
+# simple two-sided LP strategies with constant spread.
+#
+# Strategy: constant_spread (default)
+#   Maintains a fixed percentage spread between bid and ask.
+#
+# Parameters:
+#   - base_spread_bps: Spread in basis points (1 bp = 0.01%)
+#   - max_order_size_pct: Max order size as fraction of quote currency
+#   - max_inventory_pct: Max inventory skew before rebalancing
+#   - max_exposure: Max absolute exposure in quote currency
+
+agent:
+  initial_base: 0
+  initial_quote: 10000
+  base_spread_bps: 100
+  max_order_size_pct: 0.05
+  max_exposure: 25
+  max_inventory_pct: 0.5
+  max_base_position: 50
+  geography: "default"
+  liquid_volume_threshold: 500000
+
+backtest:
+  fill_probability: 0.35
+  fee_bps: 5
+  ticks: 500
+  base_price: 100.0
+  volatility: 0.015
