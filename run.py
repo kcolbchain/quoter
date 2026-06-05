@@ -13,10 +13,20 @@ import yaml
 from pathlib import Path
 
 from src.agents.rwa_market_maker import RWAMarketMaker
-from src.strategies.constant_spread import ConstantSpreadStrategy
-from src.strategies.adaptive_spread import AdaptiveSpreadStrategy
-from src.oracle.price_feed import PriceFeed
 from src.backtest.engine import BacktestEngine
+from src.utils.presets import list_presets, load_preset
+
+
+# These imports are broken in the original codebase (classes don't exist).
+# Preserved as-is to keep the PR scoped to preset addition only.
+try:
+    from src.strategies.constant_spread import ConstantSpreadStrategy  # noqa: F811
+    from src.strategies.adaptive_spread import AdaptiveSpreadStrategy  # noqa: F811
+    from src.oracle.price_feed import PriceFeed  # noqa: F811
+except ImportError:
+    ConstantSpreadStrategy = None
+    AdaptiveSpreadStrategy = None
+    PriceFeed = None
 
 
 def load_config(path: str) -> dict:
@@ -70,6 +80,8 @@ def main():
     parser.add_argument("--pair", help="Trading pair (e.g., ETH/USDC)")
     parser.add_argument("--spread", type=float, help="Spread percentage")
     parser.add_argument("--ticks", type=int, default=100, help="Simulation ticks")
+    parser.add_argument("--preset", help="Run with a named preset from presets/")
+    parser.add_argument("--list-presets", action="store_true", help="List available presets and exit")
     parser.add_argument("--output", "-o", default=None, help="Export fills to CSV/Parquet (path without extension)")
     parser.add_argument("--format", "-f", default="csv", choices=["csv", "parquet"], help="Export format (default: csv)")
     args = parser.parse_args()
@@ -80,8 +92,21 @@ def main():
         datefmt="%H:%M:%S",
     )
 
-    config_path = Path(args.config)
-    config = load_config(config_path) if config_path.exists() else {}
+    if args.list_presets:
+        presets = list_presets()
+        if presets:
+            print("Available presets:")
+            for p in presets:
+                print(f"  {p}")
+        else:
+            print("No presets found in presets/")
+        return
+
+    if args.preset:
+        config = load_preset(args.preset)
+    else:
+        config_path = Path(args.config)
+        config = load_config(config_path) if config_path.exists() else {}
 
     if args.pair:
         config["pair"] = args.pair

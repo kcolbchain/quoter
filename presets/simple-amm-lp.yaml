@@ -1,0 +1,32 @@
+# Simple AMM LP — Concentrated liquidity provider simulation
+#
+# Models providing liquidity on a constant-product AMM (e.g., Uniswap V3)
+# with a tight range around the current price. The agent starts with both
+# base and quote assets and places small, tight-spread orders to simulate
+# concentrated LP positions.
+#
+# Parameters:
+#   agent.*              — Capital, spread, sizing, and risk limits
+#   backtest.*           — Simulation engine settings (fill rate, fees, ticks, price, volatility)
+
+agent:
+  initial_base: 1.0
+  initial_quote: 3000
+  base_spread_bps: 10
+  max_order_size_pct: 0.05
+  max_exposure: 30
+  max_inventory_pct: 0.5
+  max_base_position: 2.0
+  geography: "default"
+  liquid_volume_threshold: 500000
+
+backtest:
+  fill_probability: 0.8
+  fee_bps: 5
+  ticks: 1000
+  base_price: 3000.0
+  volatility: 0.01
+
+strategy: "constant_spread"
+spread: 0.1
+pair: "ETH/USDC"
