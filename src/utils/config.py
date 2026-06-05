@@ -18,3 +18,13 @@ def merge_configs(base: dict, override: dict) -> dict:
         else:
             result[key] = value
     return result
+
+PRESETS = {
+    "simple-amm-lp": "presets/simple-amm-lp.yaml",
+}
+
+def load_preset(name: str) -> dict:
+    """Load a registered preset."""
+    if name not in PRESETS:
+        raise ValueError(f"Unknown preset '{name}'. Available presets: {list(PRESETS.keys())}")
+    return load_config(PRESETS[name])

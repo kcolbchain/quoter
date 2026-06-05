@@ -1,0 +1,6 @@
+strategy: "constant_spread"
+pair: "ETH/USDC"
+spread: 0.3
+ticks: 200
+simulate: true
+description: "Simple AMM LP Strategy: Provides continuous liquidity at a fixed 0.3% spread to simulate a basic x*y=k AMM position."

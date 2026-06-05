@@ -13,15 +13,9 @@ import yaml
 from pathlib import Path
 
 from src.agents.rwa_market_maker import RWAMarketMaker
-from src.strategies.constant_spread import ConstantSpreadStrategy
-from src.strategies.adaptive_spread import AdaptiveSpreadStrategy
-from src.oracle.price_feed import PriceFeed
+from src.oracle.price_feed import MockPriceFeed
 from src.backtest.engine import BacktestEngine
-
-
-def load_config(path: str) -> dict:
-    with open(path) as f:
-        return yaml.safe_load(f)
+from src.utils.config import load_config, load_preset, merge_configs
 
 
 def run_simulate(config: dict, output_path: str = None, output_fmt: str = "csv"):
@@ -30,25 +24,18 @@ def run_simulate(config: dict, output_path: str = None, output_fmt: str = "csv")
     pair = config.get("pair", "ETH/USDC")
     strategy_name = config.get("strategy", "constant_spread")
 
-    oracle = PriceFeed(source="mock", pair=pair)
-
-    if strategy_name == "adaptive":
-        strategy = AdaptiveSpreadStrategy(
-            base_spread=config.get("spread", 0.5),
-            volatility_window=config.get("vol_window", 20),
-        )
-    else:
-        strategy = ConstantSpreadStrategy(spread_pct=config.get("spread", 0.5))
+    oracle = MockPriceFeed(base_prices={pair: 100.0})
 
     agent = RWAMarketMaker(
-        strategy=strategy,
+        agent_id="sim-agent",
         oracle=oracle,
         config=config,
     )
 
-    engine = BacktestEngine(agent=agent, oracle=oracle)
-    results = engine.run(ticks=config.get("ticks", 100))
-    engine.print_summary(results)
+    engine = BacktestEngine(agent=agent)
+    data = BacktestEngine.generate_mock_data(base_price=100.0, ticks=config.get("ticks", 100))
+    results = engine.run(data)
+    logging.info(f"Backtest completed: {results.total_fills} fills, PnL: {results.total_pnl:.2f}")
 
     if output_path:
         path = engine.export(results, output_path, fmt=output_fmt)
@@ -66,6 +53,7 @@ def run_live(config: dict):
 def main():
     parser = argparse.ArgumentParser(description="kcolbchain quoter — market-making agent")
     parser.add_argument("--config", default="config/default.yaml", help="Config path")
+    parser.add_argument("--preset", help="Load a registered preset config")
     parser.add_argument("--simulate", action="store_true", help="Backtest mode")
     parser.add_argument("--pair", help="Trading pair (e.g., ETH/USDC)")
     parser.add_argument("--spread", type=float, help="Spread percentage")
@@ -80,8 +68,13 @@ def main():
         datefmt="%H:%M:%S",
     )
 
-    config_path = Path(args.config)
-    config = load_config(config_path) if config_path.exists() else {}
+    config = {}
+    if args.preset:
+        config = load_preset(args.preset)
+    else:
+        config_path = Path(args.config)
+        if config_path.exists():
+            config = load_config(str(config_path))
 
     if args.pair:
         config["pair"] = args.pair
