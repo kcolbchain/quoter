@@ -1,27 +1,26 @@
 # Simple AMM liquidity-provider simulation preset.
-#
-# Models a balanced LP that posts adaptive quotes around ETH/USDC while
-# keeping order size and inventory drift conservative.
+# Models a balanced LP that posts adaptive quotes around ETH/USDC.
+# Created by Ojas2095 for Quoter #30
 
 pair: "ETH/USDC"
 strategy: "adaptive"
-spread: 0.35
-vol_window: 30
+spread: 0.30
+vol_window: 24
 simulate: true
 
 agent:
-  initial_base: 5
-  initial_quote: 10000
-  base_spread_bps: 35
-  max_order_size_pct: 0.05
-  max_exposure: 25000
-  max_inventory_pct: 0.45
-  max_base_position: 8
+  initial_base: 10
+  initial_quote: 20000
+  base_spread_bps: 30
+  max_order_size_pct: 0.04
+  max_exposure: 50000
+  max_inventory_pct: 0.40
+  max_base_position: 15
   geography: "default"
-  liquid_volume_threshold: 1500000
+  liquid_volume_threshold: 1000000
 
 backtest:
-  fill_probability: 0.35
-  ticks: 300
-  base_price: 2000.0
-  volatility: 0.015
+  fill_probability: 0.40
+  ticks: 500
+  base_price: 2500.0
+  volatility: 0.02
