@@ -17,7 +17,7 @@ import json
 import logging
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import AsyncIterator, Optional
 
 import websockets
@@ -242,7 +242,7 @@ class BinanceWebSocketConnector:
             price=trade.price,
             currency="USD",
             source="binance_ws",
-            timestamp=datetime.utcfromtimestamp(trade.event_time_ms / 1000),
+            timestamp=datetime.fromtimestamp(trade.event_time_ms / 1000, timezone.utc),
             confidence=1.0,
         )
 
