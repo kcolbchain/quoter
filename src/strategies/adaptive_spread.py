@@ -127,8 +127,8 @@ def compute_adaptive_quotes(
     bid_spread_bps = max(bid_spread_bps, params.min_spread_bps / 2)
     ask_spread_bps = max(ask_spread_bps, params.min_spread_bps / 2)
     return {
-        "bid": mid_price * (1 - bid_spread_bps / 10000),
-        "ask": mid_price * (1 + ask_spread_bps / 10000),
+        "bid": float(mid_price * (1 - bid_spread_bps / 10000)),
+        "ask": float(mid_price * (1 + ask_spread_bps / 10000)),
         "spread_bps": float(spread_bps),
         "bid_spread_bps": float(bid_spread_bps),
         "ask_spread_bps": float(ask_spread_bps),
