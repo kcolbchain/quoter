@@ -1,5 +1,5 @@
 # Simple AMM liquidity-provider simulation preset.
-#
+# Optimized by Antigravity for better slippage control.
 # Models a balanced LP that posts adaptive quotes around ETH/USDC while
 # keeping order size and inventory drift conservative.
 
