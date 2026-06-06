@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 import random
 
@@ -47,7 +47,7 @@ class MockPriceFeed(BasePriceFeed):
             price=price,
             currency="USD",
             source="mock",
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
             confidence=0.95,
         )
         self._history.setdefault(asset, []).append(point)

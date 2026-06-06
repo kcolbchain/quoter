@@ -2,12 +2,16 @@
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class Side(Enum):
@@ -20,7 +24,7 @@ class Order:
     side: Side
     price: float
     size: float
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=utc_now)
     order_id: Optional[str] = None
 
 
@@ -30,7 +34,7 @@ class Fill:
     price: float
     size: float
     fee: float
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=utc_now)
 
 
 @dataclass
@@ -139,7 +143,7 @@ class BaseAgent(ABC):
 
     def log_event(self, event_type: str, data: dict):
         entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utc_now().isoformat(),
             "agent": self.agent_id,
             "event": event_type,
             **data,
