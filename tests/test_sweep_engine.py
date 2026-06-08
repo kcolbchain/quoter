@@ -3,7 +3,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from sweep_engine import (
+from quoter.sweep_engine import (
     ParameterRange, SweepConfig, ParameterSweep, SweepResult,
     example_mm_strategy
 )

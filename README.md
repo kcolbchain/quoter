@@ -28,6 +28,9 @@ python run.py --simulate --pair ETH/USDC --spread 0.5 --ticks 200
 # Backtest with adaptive strategy
 python run.py --simulate --config config/default.yaml --output fills
 
+# Backtest with a simulation preset
+python run.py --simulate --preset simple-amm-lp
+
 # Live mode (requires venue connector + keys; stub by default)
 python run.py --config config/live.yaml
 ```
@@ -67,6 +70,7 @@ src/
   backtest/      — tick-driven engine + fill export
   utils/         — config, logging, inventory helpers
 config/          — default.yaml, live.yaml
+presets/         — named simulation presets such as simple-amm-lp
 tests/           — pytest suite
 ```
 

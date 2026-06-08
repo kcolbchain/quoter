@@ -30,3 +30,29 @@ backtest:
 strategy: "constant_spread"
 spread: 0.1
 pair: "ETH/USDC"
+# Simple AMM liquidity-provider simulation preset.
+# Models a balanced LP that posts adaptive quotes around ETH/USDC.
+# Created by Ojas2095 for Quoter #30
+
+pair: "ETH/USDC"
+strategy: "adaptive"
+spread: 0.30
+vol_window: 24
+simulate: true
+
+agent:
+  initial_base: 10
+  initial_quote: 20000
+  base_spread_bps: 30
+  max_order_size_pct: 0.04
+  max_exposure: 50000
+  max_inventory_pct: 0.40
+  max_base_position: 15
+  geography: "default"
+  liquid_volume_threshold: 1000000
+
+backtest:
+  fill_probability: 0.40
+  ticks: 500
+  base_price: 2500.0
+  volatility: 0.02

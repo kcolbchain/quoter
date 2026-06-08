@@ -29,7 +29,7 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import AsyncIterator, Optional
 
@@ -132,9 +132,7 @@ class RecordedFeedConnector:
                 price=trade.price,
                 currency="USD",
                 source="recorded",
-                timestamp=datetime.utcfromtimestamp(
-                    trade.event_time_ms / 1000
-                ),
+                timestamp=datetime.fromtimestamp(trade.event_time_ms / 1000, timezone.utc),
                 confidence=1.0,
             )
 
