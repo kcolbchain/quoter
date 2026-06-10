@@ -93,7 +93,7 @@ class TestBinanceWebSocketConnector:
             "T": 1672515782136,
             "m": False,
         }
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.new_event_loop().run_until_complete(
             conn._handle_message(json.dumps(data))
         )
         assert conn.stats["trades_received"] == 1
@@ -101,7 +101,7 @@ class TestBinanceWebSocketConnector:
 
     def test_handle_invalid_json(self):
         conn = BinanceWebSocketConnector(symbol="BTCUSDT")
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.new_event_loop().run_until_complete(
             conn._handle_message("not json")
         )
         assert conn.stats["trades_received"] == 0
@@ -110,7 +110,7 @@ class TestBinanceWebSocketConnector:
         conn = BinanceWebSocketConnector(symbol="BTCUSDT")
         # Non-trade events still get parsed but trade fields are zero
         data = {"e": "depthUpdate", "E": 123, "s": "BTCUSDT"}
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.new_event_loop().run_until_complete(
             conn._handle_message(json.dumps(data))
         )
         assert conn.stats["trades_received"] == 1
@@ -125,7 +125,7 @@ class TestBinanceWebSocketConnector:
             "e": "trade", "E": 1672515782136, "s": "BTCUSDT",
             "t": 1, "p": "50000.00", "q": "0.001", "T": 1672515782136, "m": False,
         }
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
         # First tick should go through
         loop.run_until_complete(conn._handle_message(json.dumps(data)))
         assert conn.stats["ticks_emitted"] == 1
@@ -143,7 +143,7 @@ class TestBinanceWebSocketConnector:
             "e": "trade", "E": 1672515782136, "s": "BTCUSDT",
             "t": 1, "p": "50000.00", "q": "0.001", "T": 1672515782136, "m": False,
         }
-        asyncio.get_event_loop().run_until_complete(
+        asyncio.new_event_loop().run_until_complete(
             conn._handle_message(json.dumps(data))
         )
         tick = conn.get_latest_tick()
@@ -174,7 +174,7 @@ class TestBinanceWebSocketConnector:
             "e": "trade", "E": 1672515782136, "s": "BTCUSDT",
             "t": 1, "p": "50000.00", "q": "0.001", "T": 1672515782136, "m": False,
         }
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
         for i in range(5):
             data["t"] = i
             loop.run_until_complete(conn._handle_message(json.dumps(data)))
@@ -231,7 +231,7 @@ class TestRecordedFeedConnector:
             async for tick in connector.ticks():
                 ticks.append(tick)
 
-        asyncio.get_event_loop().run_until_complete(collect())
+        asyncio.new_event_loop().run_until_complete(collect())
 
         assert len(ticks) == 2
         assert ticks[0].price == 50000.0
@@ -254,7 +254,7 @@ class TestRecordedFeedConnector:
             async for tick in connector.ticks():
                 ticks.append(tick)
 
-        asyncio.get_event_loop().run_until_complete(collect())
+        asyncio.new_event_loop().run_until_complete(collect())
         assert ticks[0].asset == "ETHUSDT"
 
     def test_stop_replay(self):
@@ -274,7 +274,7 @@ class TestRecordedFeedConnector:
                 if len(ticks) >= 3:
                     connector.stop()
 
-        asyncio.get_event_loop().run_until_complete(collect())
+        asyncio.new_event_loop().run_until_complete(collect())
         assert len(ticks) <= 5  # May get a couple more before stop takes effect
 
     def test_message_count(self):
