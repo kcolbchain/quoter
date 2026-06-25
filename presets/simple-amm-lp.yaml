@@ -1,0 +1,33 @@
+# Simple AMM LP preset — passive liquidity provision strategy
+#
+# Models a vanilla concentrated-liquidity LP position on a stable pair.
+# Spreads are tight; the LP earns from volume while managing inventory risk.
+#
+# Usage: python run.py --config presets/simple-amm-lp.yaml --simulate
+
+pair: "ETH/USDC"
+strategy: "constant_spread"
+spread: 0.05               # 5 bps — tight for high-volume pairs
+
+agent:
+  initial_base: 1.0        # start with 1 ETH
+  initial_quote: 2000       # and ~$2K USDC (for a ~$4K position)
+  base_spread_bps: 5        # 5 bps spread
+  max_order_size_pct: 0.05  # max 5% of inventory per order
+  max_exposure: 2.0         # max 2 ETH exposure
+  max_inventory_pct: 0.5    # rebalance at 50% inventory skew
+  max_base_position: 5.0    # hard cap 5 ETH
+  geography: "global"
+  liquid_volume_threshold: 500000  # only trade pools with >$500K TVL
+
+backtest:
+  fill_probability: 0.5     # 50% fill rate (conservative for AMM LPs)
+  fee_bps: 5                # 5 bps pool fee (Uniswap V3 5bp tier)
+  ticks: 1000               # 1000 simulation steps
+  base_price: 2000.0        # ETH at $2K
+  volatility: 0.015         # 1.5% daily vol (ETH typical)
+
+risk:
+  max_loss_pct: 5.0         # stop if down 5%
+  max_position_usd: 10000   # max $10K position
+  rebalance_threshold: 0.7  # rebalance at 70% skew
