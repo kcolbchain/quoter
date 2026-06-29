@@ -5,7 +5,7 @@ MVP implementation for kcolbchain/quoter#20
 Builds a grid of parameters → DataFrame of metrics for MM tuning.
 
 Usage:
-    from sweep_engine import ParameterSweep, SweepConfig
+    from quoter.sweep_engine import ParameterSweep, SweepConfig
     config = SweepConfig(...)
     sweep = ParameterSweep(config)
     results = sweep.run()
